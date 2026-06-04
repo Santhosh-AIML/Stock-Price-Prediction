@@ -1,0 +1,271 @@
+{% extends "base.html" %}
+
+{% block title %}AI Stock Predictor — Dashboard{% endblock %}
+
+{% block content %}
+
+<!-- ═══════════════════════════ Loading Overlay ═══════════════════════════ -->
+<div id="loadingOverlay">
+  <div class="spinner-border text-primary" role="status"></div>
+  <p class="load-text" id="loadingText">Fetching data…</p>
+</div>
+
+<!-- ═══════════════════════════ Hero Search Row ═══════════════════════════ -->
+<div class="row mb-4">
+  <div class="col-12">
+    <div class="panel-card p-4">
+      <h5 class="fw-semibold mb-1">Search a Stock</h5>
+      <p class="text-muted small mb-3">
+        Enter any ticker symbol to fetch live data and predictions.
+      </p>
+
+      <!-- Search bar -->
+      <div class="input-group mb-3" style="max-width:520px;">
+        <span class="input-group-text" style="background:var(--input-bg);border-color:var(--border-color);">
+          <i class="bi bi-search"></i>
+        </span>
+        <input
+          type="text"
+          id="searchInput"
+          class="form-control"
+          placeholder="e.g. AAPL, TSLA, TCS.NS, RELIANCE.NS"
+          autocomplete="off"
+          autofocus
+        />
+        <button class="btn btn-primary search-btn" id="searchBtn" type="button">
+          Analyse&nbsp;<i class="bi bi-arrow-right ms-1"></i>
+        </button>
+      </div>
+
+      <!-- Quick-pick chips -->
+      <div class="d-flex flex-wrap gap-2">
+        <span class="ticker-chip" data-ticker="AAPL">🍎 AAPL</span>
+        <span class="ticker-chip" data-ticker="TSLA">⚡ TSLA</span>
+        <span class="ticker-chip" data-ticker="GOOGL">🔍 GOOGL</span>
+        <span class="ticker-chip" data-ticker="MSFT">🪟 MSFT</span>
+        <span class="ticker-chip" data-ticker="AMZN">📦 AMZN</span>
+        <span class="ticker-chip" data-ticker="NVDA">🎮 NVDA</span>
+        <span class="ticker-chip" data-ticker="TCS.NS">🇮🇳 TCS</span>
+        <span class="ticker-chip" data-ticker="RELIANCE.NS">⛽ RELIANCE</span>
+      </div>
+
+      <!-- Error alert -->
+      <div id="searchError" class="alert alert-danger d-flex align-items-center gap-2 mt-3 d-none py-2 px-3" role="alert">
+        <i class="bi bi-exclamation-circle-fill"></i>
+        <span id="searchErrorMsg"></span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════ Stock Overview (hidden until data loads) ══ -->
+<div id="stockSection" class="d-none">
+
+  <!-- ── Company header ── -->
+  <div class="row mb-3 align-items-center">
+    <div class="col">
+      <h4 class="fw-bold mb-0" id="companyName">—</h4>
+      <span class="text-muted small" id="tickerLabel"></span>
+      &nbsp;<span class="badge bg-secondary" id="sectorBadge"></span>
+    </div>
+    <div class="col-auto">
+      <span id="signalBadge" class="signal-badge signal-HOLD">
+        <i class="bi bi-dash-circle" id="signalIcon"></i>
+        <span id="signalText">HOLD</span>
+      </span>
+    </div>
+  </div>
+
+  <!-- ── Stat cards row ── -->
+  <div class="row g-3 mb-4" id="statCards">
+
+    <div class="col-6 col-sm-4 col-lg-2">
+      <div class="stat-card p-3 position-relative">
+        <p class="stat-label mb-1">Price</p>
+        <p class="stat-value" id="statPrice">—</p>
+        <p class="small mb-0" id="statPriceChange"></p>
+        <i class="bi bi-currency-dollar stat-icon"></i>
+      </div>
+    </div>
+
+    <div class="col-6 col-sm-4 col-lg-2">
+      <div class="stat-card p-3 position-relative">
+        <p class="stat-label mb-1">Open</p>
+        <p class="stat-value" id="statOpen">—</p>
+        <i class="bi bi-box-arrow-in-up-right stat-icon"></i>
+      </div>
+    </div>
+
+    <div class="col-6 col-sm-4 col-lg-2">
+      <div class="stat-card p-3 position-relative">
+        <p class="stat-label mb-1">High</p>
+        <p class="stat-value" id="statHigh">—</p>
+        <i class="bi bi-arrow-up stat-icon"></i>
+      </div>
+    </div>
+
+    <div class="col-6 col-sm-4 col-lg-2">
+      <div class="stat-card p-3 position-relative">
+        <p class="stat-label mb-1">Low</p>
+        <p class="stat-value" id="statLow">—</p>
+        <i class="bi bi-arrow-down stat-icon"></i>
+      </div>
+    </div>
+
+    <div class="col-6 col-sm-4 col-lg-2">
+      <div class="stat-card p-3 position-relative">
+        <p class="stat-label mb-1">Volume</p>
+        <p class="stat-value" id="statVolume">—</p>
+        <i class="bi bi-bar-chart stat-icon"></i>
+      </div>
+    </div>
+
+    <div class="col-6 col-sm-4 col-lg-2">
+      <div class="stat-card p-3 position-relative">
+        <p class="stat-label mb-1">Mkt Cap</p>
+        <p class="stat-value" id="statMarketCap">—</p>
+        <i class="bi bi-building stat-icon"></i>
+      </div>
+    </div>
+
+  </div><!-- /stat cards -->
+
+  <!-- ── Charts row ── -->
+  <div class="row g-3 mb-4">
+
+    <!-- Price History -->
+    <div class="col-lg-8">
+      <div class="panel-card p-3 h-100">
+        <div class="d-flex align-items-center justify-content-between mb-3 flex-wrap gap-2">
+          <h6 class="mb-0 fw-semibold">Price History</h6>
+          <!-- Period selector -->
+          <div class="btn-group btn-group-sm" id="periodSelector">
+            <button class="btn btn-outline-secondary period-btn" data-period="1mo">1M</button>
+            <button class="btn btn-outline-secondary period-btn" data-period="3mo">3M</button>
+            <button class="btn btn-outline-secondary period-btn active" data-period="6mo">6M</button>
+            <button class="btn btn-outline-secondary period-btn" data-period="1y">1Y</button>
+            <button class="btn btn-outline-secondary period-btn" data-period="2y">2Y</button>
+            <button class="btn btn-outline-secondary period-btn" data-period="5y">5Y</button>
+          </div>
+        </div>
+        <div class="chart-wrapper" style="height:280px;">
+          <canvas id="priceChart"></canvas>
+        </div>
+      </div>
+    </div>
+
+    <!-- Volume Chart -->
+    <div class="col-lg-4">
+      <div class="panel-card p-3 h-100">
+        <h6 class="mb-3 fw-semibold">Volume</h6>
+        <div class="chart-wrapper" style="height:280px;">
+          <canvas id="volumeChart"></canvas>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- ── Signal chart ── -->
+  <div class="row g-3 mb-4">
+    <div class="col-12">
+      <div class="panel-card p-3">
+        <div class="d-flex align-items-start justify-content-between flex-wrap gap-2 mb-3">
+          <div>
+            <h6 class="mb-1 fw-semibold">Moving Average Signal (MA20 × MA50)</h6>
+            <p class="text-muted small mb-0" id="signalReason">—</p>
+          </div>
+        </div>
+        <div class="chart-wrapper" style="height:240px;">
+          <canvas id="signalChart"></canvas>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════ Prediction Panel ═══════════════════ -->
+  <div class="row g-3 mb-4">
+    <div class="col-12">
+      <div class="panel-card p-4">
+        <h6 class="fw-semibold mb-1">AI Price Prediction</h6>
+        <p class="text-muted small mb-3">
+          Train Linear Regression or LSTM model on historical data to forecast the next trading day.
+        </p>
+
+        <div class="row g-3 align-items-end mb-3">
+          <div class="col-sm-auto">
+            <label class="form-label small fw-semibold mb-1">Training Period</label>
+            <select class="form-select form-select-sm" id="predPeriod" style="min-width:110px;">
+              <option value="6mo">6 Months</option>
+              <option value="1y" selected>1 Year</option>
+              <option value="2y">2 Years</option>
+              <option value="5y">5 Years</option>
+            </select>
+          </div>
+          <div class="col-sm-auto">
+            <label class="form-label small fw-semibold mb-1">Model</label>
+            <select class="form-select form-select-sm" id="predModel" style="min-width:160px;">
+              <option value="lr">Linear Regression</option>
+              <option value="lstm">LSTM Neural Network</option>
+              <option value="both" selected>Both</option>
+            </select>
+          </div>
+          <div class="col-sm-auto">
+            <button class="btn btn-primary btn-sm px-4" id="runPredBtn">
+              <i class="bi bi-cpu me-1"></i>Run Prediction
+            </button>
+          </div>
+        </div>
+
+        <!-- Prediction error -->
+        <div id="predError" class="alert alert-danger d-none py-2 px-3 small" role="alert"></div>
+
+        <!-- Results (hidden until prediction runs) -->
+        <div id="predictionResults" class="d-none">
+
+          <!-- Next-day price cards -->
+          <div class="row g-3 mb-4" id="nextDayCards"></div>
+
+          <!-- Tabs for LR / LSTM -->
+          <ul class="nav nav-pills mb-3" id="predTabs">
+            <li class="nav-item">
+              <button class="nav-link active" data-tab="lr">Linear Regression</button>
+            </li>
+            <li class="nav-item">
+              <button class="nav-link" data-tab="lstm">LSTM</button>
+            </li>
+          </ul>
+
+          <!-- LR pane -->
+          <div id="pane-lr">
+            <div class="row g-3 mb-3">
+              <!-- Metrics -->
+              <div class="col-12">
+                <div class="row g-2" id="lrMetrics"></div>
+              </div>
+            </div>
+            <div class="chart-wrapper" style="height:280px;">
+              <canvas id="lrChart"></canvas>
+            </div>
+          </div>
+
+          <!-- LSTM pane -->
+          <div id="pane-lstm" class="d-none">
+            <div class="row g-3 mb-3">
+              <div class="col-12">
+                <div class="row g-2" id="lstmMetrics"></div>
+              </div>
+            </div>
+            <div class="chart-wrapper" style="height:280px;">
+              <canvas id="lstmChart"></canvas>
+            </div>
+          </div>
+
+        </div><!-- /predictionResults -->
+      </div>
+    </div>
+  </div>
+
+</div><!-- /stockSection -->
+
+{% endblock %}
